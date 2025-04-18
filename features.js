@@ -11,25 +11,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const quickResponses = document.getElementById('quickResponses');
 
     // 1. Welcome Modal
-    if (!localStorage.getItem('He@lioWelcomeSeen')) {
+    if (!localStorage.getItem('NelsonFarmsWelcomeSeen')) {
         welcomeModal.style.display = 'flex';
     }
     closeButton.addEventListener('click', () => {
         welcomeModal.style.display = 'none';
-        localStorage.setItem('He@lioWelcomeSeen', 'true');
+        localStorage.setItem('NelsonFarmsWelcomeSeen', 'true');
     });
     getStartedBtn.addEventListener('click', () => {
         welcomeModal.style.display = 'none';
-        localStorage.setItem('He@lioWelcomeSeen', 'true');
+        localStorage.setItem('NelsonFarmsWelcomeSeen', 'true');
     });
 
-    // 2. Quick Response Buttons
+    // 2. Quick Response Buttons - direct calls to window.output
     quickResponses.querySelectorAll('.quick-response-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            input.value = this.dataset.response;
-            input.dispatchEvent(new KeyboardEvent('keydown', {
-                key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true
-            }));
+        btn.addEventListener('click', async function() {
+            const text = this.dataset.response;
+            input.value = text;
+            await window.output(text);
+            input.value = '';
         });
     });
 
@@ -46,12 +46,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 4. Send Button
-    sendBtn.addEventListener('click', () => {
+    // 4. Send Button - direct call to window.output
+    sendBtn.addEventListener('click', async () => {
         if (input.value.trim()) {
-            input.dispatchEvent(new KeyboardEvent('keydown', {
-                key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true
-            }));
+            const text = input.value.trim();
+            input.value = '';
+            await window.output(text);
+        }
+    });
+
+    // 5. Input keydown - direct call to window.output
+    input.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter' && input.value.trim()) {
+            const text = input.value.trim();
+            input.value = '';
+            await window.output(text);
         }
     });
 });
