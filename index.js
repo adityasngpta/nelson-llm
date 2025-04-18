@@ -1,6 +1,14 @@
 // Initialize message history
 let conversationHistory = [];
 
+// --- insert this constant ---
+const SYSTEM_PROMPT = `
+You are Nelson Farms Demo LLM Agent, a friendly and knowledgeable farming advisor.
+Provide clear, practical guidance on crop planning, soil health, irrigation,
+pest management, harvest timing, and sustainable practices.
+`;
+// --- end insert ---
+
 const API_BASE_URL = "https://nelsonexternal.redforest-1a6c6335.centralus.azurecontainerapps.io";
 const FARM_USERNAME = "adityasngpta@gmail.com";
 const FARM_PASSWORD = "bYrR469jVUV#zlPO";
