@@ -11,25 +11,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const quickResponses = document.getElementById('quickResponses');
 
     // 1. Welcome Modal
-    if (!localStorage.getItem('NelsonFarmsWelcomeSeen')) {
+    if (!localStorage.getItem('He@lioWelcomeSeen')) {
         welcomeModal.style.display = 'flex';
     }
     closeButton.addEventListener('click', () => {
         welcomeModal.style.display = 'none';
-        localStorage.setItem('NelsonFarmsWelcomeSeen', 'true');
+        localStorage.setItem('He@lioWelcomeSeen', 'true');
     });
     getStartedBtn.addEventListener('click', () => {
         welcomeModal.style.display = 'none';
-        localStorage.setItem('NelsonFarmsWelcomeSeen', 'true');
+        localStorage.setItem('He@lioWelcomeSeen', 'true');
     });
 
-    // 2. Quick Response Buttons - direct calls to window.output
+    // 2. Quick Response Buttons
     quickResponses.querySelectorAll('.quick-response-btn').forEach(btn => {
         btn.addEventListener('click', async function() {
-            const text = this.dataset.response;
-            input.value = text;
-            await window.output(text);
+            const resp = this.dataset.response;
             input.value = '';
+            // directly call the LLM handler
+            await output(resp);
         });
     });
 
@@ -46,21 +46,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 4. Send Button - direct call to window.output
+    // 4. Send Button
     sendBtn.addEventListener('click', async () => {
-        if (input.value.trim()) {
-            const text = input.value.trim();
+        const text = input.value.trim();
+        if (text) {
             input.value = '';
-            await window.output(text);
-        }
-    });
-
-    // 5. Input keydown - direct call to window.output
-    input.addEventListener('keydown', async (e) => {
-        if (e.key === 'Enter' && input.value.trim()) {
-            const text = input.value.trim();
-            input.value = '';
-            await window.output(text);
+            await output(text);
         }
     });
 });

@@ -1,196 +1,83 @@
 // Initialize message history
 let conversationHistory = [];
 
-// Nelson Farms API configuration
-const API_BASE_URL = "https://nelsonexternal.redforest-1a6c6335.centralus.azurecontainerapps.io";
-const FARM_USERNAME = "adityasngpta@gmail.com";
-const FARM_PASSWORD = "bYrR469jVUV#zlPO";
+// --- Nelson Farms Custom LLM API Configuration ---
+const NELSON_FARMS_API_BASE_URL = "https://nelsonexternal.redforest-1a6c6335.centralus.azurecontainerapps.io";
+const NELSON_FARMS_USERNAME = "adityasngpta@gmail.com"; // use real creds securely
+const NELSON_FARMS_PASSWORD = "bYrR469jVUV#zlPO";
+let nelsonFarmsJwtToken = null;
 
-// System prompt definition
+async function getNelsonFarmsAuthToken() {
+  if (nelsonFarmsJwtToken) return nelsonFarmsJwtToken;
+  const resp = await fetch(`${NELSON_FARMS_API_BASE_URL}/login`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username: NELSON_FARMS_USERNAME, password: NELSON_FARMS_PASSWORD})
+  });
+  if (!resp.ok) throw new Error(`Auth failed: ${resp.status}`);
+  const data = await resp.json(); nelsonFarmsJwtToken = data.access_token;
+  return nelsonFarmsJwtToken;
+}
+
 const SYSTEM_PROMPT = `
-You are Nelson Farms Demo LLM, a friendly and knowledgeable farming advisor.
-Provide clear, practical guidance on crop planning, soil health, irrigation,
+You are Nelson Farms Demo LLM, an expert farming advisor.
+Provide clear guidance on crop planning, soil health, irrigation,
 pest management, harvest timing, and sustainable practices.
+Use concise, actionable advice for both small-scale and commercial farmers.
 `;
 
 // Audio feedback settings
-let audioEnabled = true;
+let audioEnabled = true; // Can be toggled by user
 
-// Farm API helper functions
-async function getAuthToken() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: FARM_USERNAME,
-        password: FARM_PASSWORD
-      })
-    });
-    
-    if (!response.ok) throw new Error(`Auth failed: ${response.status}`);
-    const data = await response.json();
-    return data.access_token;
-  } catch (error) {
-    console.error("Authentication error:", error);
-    throw error;
-  }
-}
-
-async function getFuelReporting(jwtToken) {
-  const response = await fetch(`${API_BASE_URL}/fuel_reporting`, {
-    headers: {
-      "Accept": "application/json",
-      "Authorization": `Bearer ${jwtToken}`
-    }
-  });
-  
-  if (response.ok) return await response.json();
-  return `Error fetching fuel data: ${response.status}`;
-}
-
-async function getCropStorage(jwtToken) {
-  const response = await fetch(`${API_BASE_URL}/crop_storage`, {
-    headers: {
-      "Accept": "application/json",
-      "Authorization": `Bearer ${jwtToken}`
-    }
-  });
-  
-  if (response.ok) return await response.json();
-  return `Error fetching crop storage data: ${response.status}`;
-}
-
-// Main LLM agent function
 async function getLLMResponse(input) {
   try {
     // Add user message to history
-    conversationHistory.push({ role: "user", content: input });
-    
-    // Detect intent from user message
-    let response = "";
-    let jwtToken = null;
-    
-    // Simple intent detection
-    const lowerInput = input.toLowerCase();
-    
-    if (lowerInput.includes("fuel") || lowerInput.includes("gas") || 
-        lowerInput.includes("diesel") || lowerInput.includes("usage")) {
-      // Handle fuel reporting request
-      try {
-        jwtToken = await getAuthToken();
-        const fuelData = await getFuelReporting(jwtToken);
-        response = `Here's the latest fuel usage report for your farm equipment:\n\n${formatDataAsTable(fuelData)}`;
-      } catch (error) {
-        response = "I couldn't retrieve the fuel report. There might be an authentication issue.";
-      }
-    } 
-    else if (lowerInput.includes("storage") || lowerInput.includes("inventory") || 
-             lowerInput.includes("crop") || lowerInput.includes("bushel") || 
-             lowerInput.includes("silo")) {
-      // Handle crop storage request
-      try {
-        jwtToken = await getAuthToken();
-        const storageData = await getCropStorage(jwtToken);
-        response = `Here's your current crop storage information:\n\n${formatDataAsTable(storageData)}`;
-      } catch (error) {
-        response = "I couldn't retrieve crop storage data. There might be an authentication issue.";
-      }
-    }
-    else {
-      // Generic farming advice for other queries
-      response = getGenericFarmingAdvice(lowerInput);
-    }
-    
-    // Add response to history
-    conversationHistory.push({ role: "assistant", content: response });
-    
-    // Return formatted response
-    const botText = addChat(input, "");
-    botText.innerHTML = formatMarkdown(response);
-    
-    // Scroll to the most recent message
-    const messagesContainer = document.getElementById("messages");
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    
-    return response;
-  } catch (error) {
-    console.error("Error in agent response:", error);
-    return "Sorry, I'm having trouble processing your request right now.";
-  }
-}
-
-// Helper function to format API data as a readable table
-function formatDataAsTable(data) {
-  if (!data || typeof data !== 'object') return "No data available";
-  
-  // For arrays of objects
-  if (Array.isArray(data)) {
-    if (data.length === 0) return "No entries found";
-    
-    // Create markdown table
-    const keys = Object.keys(data[0]);
-    let table = `| ${keys.join(' | ')} |\n| ${keys.map(() => '---').join(' | ')} |\n`;
-    
-    data.forEach(item => {
-      table += `| ${keys.map(key => item[key]).join(' | ')} |\n`;
+    conversationHistory.push({
+      role: "user",
+      content: input
     });
-    
-    return table;
-  }
-  
-  // For simple objects
-  let result = '';
-  for (const [key, value] of Object.entries(data)) {
-    result += `**${key}**: ${value}\n`;
-  }
-  
-  return result;
-}
 
-// Farm advice knowledge base
-function getGenericFarmingAdvice(input) {
-  // Simple farming advice based on keywords
-  if (input.includes("crop rotation")) {
-    return "Crop rotation is essential for soil health. I recommend rotating between legumes, root crops, and leafy vegetables to maximize soil nutrients and minimize pest problems. For example, follow tomatoes with beans, then leafy greens.";
-  } 
-  if (input.includes("soil health") || input.includes("soil improvement")) {
-    return "Healthy soil is the foundation of farming. I recommend regular soil testing, adding organic matter through compost, using cover crops during off-seasons, and maintaining proper pH (typically 6.0-7.0 for most crops).";
-  }
-  if (input.includes("pest")) {
-    return "For sustainable pest management, try companion planting, introducing beneficial insects like ladybugs, using row covers for physical barriers, and applying neem oil as a natural pesticide. Prevention through healthy soil and crop rotation is also key.";
-  }
-  if (input.includes("irrigat") || input.includes("water")) {
-    return "Efficient irrigation saves water and improves crop health. Consider drip irrigation for precise water application, water early in the morning to reduce evaporation, and use soil moisture sensors to prevent over-watering.";
-  }
-  if (input.includes("fertiliz")) {
-    return "For balanced fertilization, consider slow-release organic options like compost, well-rotted manure, or cover crops. Apply nitrogen-rich amendments earlier in the growing season, and phosphorus/potassium-rich amendments when fruiting begins.";
-  }
-  if (input.includes("harvest")) {
-    return "Proper harvest timing depends on the crop, but generally look for: firm texture, appropriate size, characteristic color, and ease of separation from the plant. Morning harvesting typically provides the best flavor and shelf life.";
-  }
-  if (input.includes("weed")) {
-    return "For effective weed management, use mulch to suppress weeds, consider landscape fabric in pathways, hoe when weeds are small, practice regular cultivation, and consider cover crops during fallow periods.";
-  }
-  
-  // Default response
-  return "I can provide farming advice on topics like soil health, irrigation, pest management, crop rotation, fertilization, harvesting, and more. I can also show you fuel usage reports or crop storage data. What specific information do you need?";
-}
+    // Ensure system prompt at start of history
+    if (conversationHistory[0].role !== 'system') {
+      conversationHistory.unshift({ role: 'system', content: SYSTEM_PROMPT });
+    }
 
-// Helper to format text with Markdown
-function formatMarkdown(text) {
-  return text
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-    .replace(/`([^`]+)`/gim, '<code>$1</code>')
-    .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" target="_blank">$1</a>')
-    .replace(/\n/g, '<br/>')
-    // Table formatting (basic support)
-    .replace(/\|(.+)\|/g, '<table><tr><td>$1</td></tr></table>')
-    .replace(/<td>\s*---\s*<\/td>/g, ''); // Remove separator rows
+    // --- Call Custom LLM Agent via Nelson Farms API ---
+    console.log("Sending request to custom LLM Agent...");
+    // Ensure valid auth token
+    const llmToken = await getNelsonFarmsAuthToken();
+    const llmResponse = await fetch(`${NELSON_FARMS_API_BASE_URL}/responses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${llmToken}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4.1",  // or your preferred model
+        input: input       // single input string
+      })
+    });
+    if (!llmResponse.ok) {
+      const errText = await llmResponse.text();
+      throw new Error(`Custom LLM request failed: ${llmResponse.status} - ${errText}`);
+    }
+    const llmJson = await llmResponse.json();
+    // Extract the output text (handles various possible fields)
+    const llmOutput = llmJson.output_text || llmJson.output || llmJson.choices?.[0]?.message?.content || llmJson.choices?.[0]?.text || JSON.stringify(llmJson);
+
+    // Display and record the assistant's reply
+    addChat(input, llmOutput);
+    conversationHistory.push({ role: "assistant", content: llmOutput });
+
+    // Optionally trim history
+    if (conversationHistory.length > 20) {
+        conversationHistory = [conversationHistory[0], ...conversationHistory.slice(-20)];
+    }
+
+    return llmOutput;
+  } catch (error) {
+    console.error('Error:', error);
+    return "Sorry, I'm having trouble connecting right now.";
+  }
 }
 
 async function output(input) {
@@ -202,14 +89,13 @@ async function output(input) {
     if (audioEnabled && typeof textToSpeech === 'function') {
       console.log('Starting text-to-speech for response');
       await textToSpeech(reply);
+    } else {
+      console.log('Audio output skipped (disabled or not available)');
     }
   } catch (error) {
     console.error('Error in output function:', error);
   }
 }
-
-// Make output function available globally
-window.output = output;
 
 document.addEventListener("DOMContentLoaded", () => {
   // Initialize with system prompt
@@ -218,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
     content: SYSTEM_PROMPT
   }];
   
-  const welcome = "Hi, I'm Nelson Farms Demo LLM! 🌽 Ready to help with all your farming questions. You can ask about fuel usage, crop storage, or general farming advice.";
+  const welcome = "Hi, I'm Nelson Farms Demo LLM! 🌽 Ready to help with all your farming questions.";
   addChat("", welcome, true);
   
   // Add welcome message to history
@@ -241,7 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Audio toggle button
+  // Add audio toggle button if available
   const audioToggleBtn = document.getElementById("audioToggleBtn");
   if (audioToggleBtn) {
     audioToggleBtn.addEventListener("click", () => {
@@ -253,7 +139,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   
-  // Send button functionality
+  // Add send button functionality
   const sendBtn = document.getElementById("sendBtn");
   if (sendBtn) {
     sendBtn.addEventListener("click", () => {
